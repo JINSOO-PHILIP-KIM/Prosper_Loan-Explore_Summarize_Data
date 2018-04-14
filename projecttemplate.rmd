@@ -14,6 +14,7 @@ library(ggplot2)
 library(dplyr)
 library(gridExtra)
 library(RColorBrewer)
+library(tidyverse)
 
 
 # Notice that the parameter "echo" was set to FALSE for this code chunk. This
@@ -36,8 +37,49 @@ library(RColorBrewer)
 #  input string 1 is invalid in this locale'''
 
 df <- read.csv("C:/Users/Waker/Google 드라이브(1)/Class matrials/DAND2/7. Exploratory Data Analysis (24h) Due. 7 Mar/Project/Data/prosperLoanData.csv")
+
+```
+
+Data wrangling.
+Before Analysis I found 2 things to wrangle.
+1. Duplicated data
+```{r}
+count(df) # number of rows in dataset
+count(df[unique(df$ListingKey), ]) # number of rows in ListingKey which is unique key for each listing, same value as the 'key' used in the listing object in the API.
+
+```
+
+These are one example of duplicated ListingKey.
+```{r}
+# Create duplicated dataset
+rm_keys <- count(df, ListingKey, sort = T) %>% 
+  filter(n > 1)
+
+# Change the name of column
+colnames(rm_keys)[2] <- "Number of duplication" 
+
+# Print one example of duplicated
+df[(df$ListingKey == "17A93590655669644DB4C06"), ]
+
+```
+I found that only the ProsperScore is different. Therefore I will remove five
+
+```{r}
+df_no_dupicated <- unique(df[df$ListingKey, ])
+
+
+df_no_dupicated[(df_no_dupicated$ListingKey == "17A93590655669644DB4C06"), ]
+```
+힣 모르겠다 어떻게 listingkey 하나만 남기지. 남는 건 어떤 게 남겨지는걸까.
+
+
+
+```{r}
 df_copy <- df # Copy the original.
 ```
+
+
+
 
 > **Tip**: Before you create any plots, it is a good idea to provide a short
 introduction into the dataset that you are planning to explore. Replace this
@@ -52,71 +94,154 @@ forget to add a comment after each plot or closely-related group of plots!
 There should be multiple code chunks and text sections; the first one below is
 just to help you get started.
 
+돈 빌려 본 사람 %
+```{r}
+nrow(subset(df, !is.na(df$TotalProsperPaymentsBilled))) / nrow(df)
+```
+
+
+빌려 본 사람 중 잘 갚은 사람
+
+df_copy <- df_copy %>% 
+  filter(!is.na(TotalProsperPaymentsBilled)) %>% 
+  mutate(RightTimePayments = (OnTimeProsperPayments + ProsperPaymentsLessThanOneMonthLate) / TotalProsperPaymentsBilled) 
+
+iris$Regulation <- ifelse(iris$Sepal.Length >=5, "UP", "DOWN")
+밑에 스택오버플로우에 질문해둠. 새 칼럼 이상하게 생성돼서
+```{r}
+
+df_copy$RightTimePayments <- ifelse(df_copy$TotalProsperPaymentsBilled == NA,서 NA, (OnTimeProsperPayments + ProsperPaymentsLessThanOneMonthLate) / TotalProsperPaymentsBilled)
+
+summary(df$RightTimePayments)
+
+```
+
+
+Proportion of 'Ontime Prosper payments' and 'Less than one month late'
+```{r}
+df_copy <- df_copy %>% 
+  filter(!is.na(TotalProsperPaymentsBilled)) %>% 
+  mutate(RightTimePayments = (OnTimeProsperPayments + ProsperPaymentsLessThanOneMonthLate) / TotalProsperPaymentsBilled) %>% 
+
+
+
+```
+
+
+본인이 말한 급여에 따른 아직 안 갚은 돈
 ```{r echo=FALSE, Univariate_Plots_first}
 ggplot(aes(x = StatedMonthlyIncome, y = AmountDelinquent), data = subset(df_copy, !is.na(AmountDelinquent))) +
   geom_point() +
-  scale_x_continuous(lim = c(0, quantile(df_copy$StatedMonthlyIncome, 0.99))) +
+  scale_x_continuous(
+    lim = c(0, quantile(df_copy$StatedMonthlyIncome, 0.99))) +
   scale_y_continuous(lim = c(0, quantile(df_copy$AmountDelinquent, 0.99)))
 ```
 
 ***
 
-This is the 'Top 10 Occupations that borrow the most times' except 'Other' and 'blank'.
-```{r echo=FALSE, Univariate_Plots_second}
-new <- df_copy %>% 
 
-  group_by(Occupation) %>% 
-  summarise(how_many = n()) %>% 
-  arrange(-how_many)
+1. Let's see the distribution of Income Range 
+```{r echo=FALSE, Univariate_Plots}
+table(df_copy$IncomeRange)
+df_copy$IncomeRange <- factor(df_copy$IncomeRange,
+                              levels = c('$0', '$1-24,999', '$25,000-49,999', '$50,000-74,999', '$75,000-99,999', '$100,000+', 'Not employed', 'Not displayed'))
+ggplot(aes(x = IncomeRange), data = df_copy) +
+  geom_bar()
+```
 
-occupation_top10_frequent <- head(new, 12)
-occupation_top10_frequent <- occupation_top10_frequent[-c(1, 8), ]
-ggplot(aes(x = Occupation, y = how_many), data = occupation_top10_frequent) +
-  geom_point() +
-  ylab('Count') +
-  ggtitle('Top 10 Occupations that borrow the most times')
+2. Occupation distribution
+```{r echo=FALSE, Univariate_Plots}
+
+df_copy <- within(df_copy,
+                  Occupation <- factor(Occupation, levels = names(sort(table(Occupation)))))
+ggplot(aes(Occupation), data = df_copy) +
+  geom_bar() +
+  coord_flip() +
+  xlab('Purpose') +
+  ylab('count') +
+  ggtitle("Purpose of borrowing")
+
+```
+
+3. Prosper score distribution for 84,853 (29,084 people have no record)
+```{r echo=FALSE, Univariate_Plots}
+ggplot(df_copy, aes(ProsperScore)) +
+  geom_histogram()
+```
+
+
+4. Reasons to borrow money
+```{r echo=FALSE, Univariate_Plots}
+# Change the number to borrowing purpose
+df_copy$ListingCategory..numeric.[df_copy$ListingCategory..numeric. == 0] <- "Not Available"
+df_copy$ListingCategory..numeric.[df_copy$ListingCategory..numeric. == 1] <- "Debt Consolidation"
+df_copy$ListingCategory..numeric.[df_copy$ListingCategory..numeric. == 2] <- "Home Improvement"
+df_copy$ListingCategory..numeric.[df_copy$ListingCategory..numeric. == 3] <- "Business"
+df_copy$ListingCategory..numeric.[df_copy$ListingCategory..numeric. == 4] <- "Personal Loan"
+df_copy$ListingCategory..numeric.[df_copy$ListingCategory..numeric. == 5] <- "Student Use"
+df_copy$ListingCategory..numeric.[df_copy$ListingCategory..numeric. == 6] <- "Auto"
+df_copy$ListingCategory..numeric.[df_copy$ListingCategory..numeric. == 7] <- "Other"
+df_copy$ListingCategory..numeric.[df_copy$ListingCategory..numeric. == 8] <- "Baby&Adoption"
+df_copy$ListingCategory..numeric.[df_copy$ListingCategory..numeric. == 9] <- "Boat"
+df_copy$ListingCategory..numeric.[df_copy$ListingCategory..numeric. == 10] <- "Cosmetic Procedur"
+df_copy$ListingCategory..numeric.[df_copy$ListingCategory..numeric. == 11] <- "Engagement Ring"
+df_copy$ListingCategory..numeric.[df_copy$ListingCategory..numeric. == 12] <- "Green Loans"
+df_copy$ListingCategory..numeric.[df_copy$ListingCategory..numeric. == 13] <- "Household Expenses"
+df_copy$ListingCategory..numeric.[df_copy$ListingCategory..numeric. == 14] <- "Large Purchases"
+df_copy$ListingCategory..numeric.[df_copy$ListingCategory..numeric. == 15] <- "Medical/Dental"
+df_copy$ListingCategory..numeric.[df_copy$ListingCategory..numeric. == 16] <- "Motorcycle"
+df_copy$ListingCategory..numeric.[df_copy$ListingCategory..numeric. == 17] <- "RV"
+df_copy$ListingCategory..numeric.[df_copy$ListingCategory..numeric. == 18] <- "Taxes"
+df_copy$ListingCategory..numeric.[df_copy$ListingCategory..numeric. == 19] <- "Vacation"
+df_copy$ListingCategory..numeric.[df_copy$ListingCategory..numeric. == 20] <- "Wedding Loans"
+
+df_copy <- within(df_copy,
+                  ListingCategory..numeric. <- factor(ListingCategory..numeric., levels = names(sort(table(ListingCategory..numeric.)))))
+ggplot(aes(ListingCategory..numeric.), data = df_copy) +
+  geom_bar() +
+  coord_flip() +
+  xlab('Purpose') +
+  ylab('count') +
+  ggtitle("Purpose of borrowing")
+
+```
+
+5. Loan distribtion by states
+```{r echo=FALSE, Univariate_Plots}
+df_copy <- within(df_copy,
+                  BorrowerState <- factor(BorrowerState, levels = names(sort(table(BorrowerState)))))
+ggplot(aes(BorrowerState), data = df_copy) +
+  geom_bar() +
+  coord_flip() +
+  xlab('State') +
+  ylab('count') +
+  ggtitle("Loan distribtion by states")
+
+```
+
+6. LenderYield distribution
+```{r echo=FALSE, Univariate_Plots}
+ggplot(df_copy, aes(LenderYield)) +
+  geom_bar()
+```
+
+
+7. 
+```{r echo=FALSE, Univariate_Plots}
+
+```
+
+8. 
+```{r echo=FALSE, Univariate_Plots}
+
 ```
 
 
 
-```{r echo=FALSE, Univariate_Plots_third}
-ggplot(aes(x = IncomeRange, y = AmountDelinquent), data = df_copy) +
-  geom_point()
-```
 
-```{r}
-
-new <- df_copy %>% 
-  group_by(Occupation) %>% 
-  summarise(how_many = n()) %>% 
-  arrange(-how_many)
-
-head(new, 10)
-```
+신용점수 평균내서 보자. 이것도 NA 때문에 못 하고 있음.
 
 
-
-
-```{r echo=FALSE, Univariate_Plots_fourth}
-ggplot(aes(x = Occupation), data = df) +
-
-```
-
-```{r echo=FALSE, Univariate_Plots_fifth}
-
-```
-
-```{r echo=FALSE, Univariate_Plots_sixth}
-
-```
-
-```{r echo=FALSE, Univariate_Plots_seventh}
-
-```
-
-```{r echo=FALSE, Univariate_Plots_eighth}
-
-```
 > **Tip**: Make sure that you leave a blank line between the start / end of
 each code block and the end / start of your Markdown text so that it is
 formatted nicely in the knitted text. Note as well that text on consecutive
@@ -154,6 +279,79 @@ as well.
 ```{r echo=FALSE, Bivariate_Plots}
 
 ```
+
+This is the 'Top 10 Occupations that borrow the most' except 'Other' and 'blank'.
+```{r echo=FALSE, Bivariate_Plots_first}
+new <- df_copy %>% 
+
+  group_by(Occupation) %>% 
+  summarise(how_many = n()) %>% 
+  arrange(-how_many)
+
+occupation_top10_frequent <- head(new, 12)
+occupation_top10_frequent <- occupation_top10_frequent[-c(1, 8), ]
+ggplot(aes(x = reorder(Occupation, -how_many), y = how_many), data = occupation_top10_frequent) +
+  geom_point() +
+  xlab('Occupation')
+  ylab('Count') +
+  ggtitle("Top 10 Occupations that borrow the most except 'Other' and 'blank'")
+```
+
+lender yield
+This is the Top 10 Occupations that has high lender yield except 'Other' and 'blank'.
+```{r echo=FALSE, Bivariate_Plots_second}
+High_LenderYield_Occupation <- df_copy %>% 
+  filter(LenderYield >= median(df_copy$LenderYield)) %>% 
+  group_by(Occupation) %>% 
+  summarise(how_many = n()) %>% 
+  arrange(-how_many) %>% 
+  head(12) %>% 
+  
+ggplot(aes(x = reorder(Occupation, -how_many), y = how_many), data = High_LenderYield_Occupation[-c(1, 8), ]) +
+  geom_point() +
+  xlab('Occupation') +
+  ylab('count') +
+  ggtitle("Top 10 Occupations that has High LenderYiled except 'Other' and 'blank'")
+
+```
+"랜더일드 높은 직업"과 "가장 많이 돈 빌린 직업" 9개가 일치. Sales - Retail에 대해 더 공격적으로 돈을 빌려줘야 함!
+
+```{r}
+Loan_Purpose <- df_copy %>% 
+  group_by(ListingCategory..numeric.) %>% 
+  summarise(how_many = n()) %>% 
+  arrange(-how_many) %>% 
+  head(12)
+  
+
+Loan_Purpose$ListingCategory..numeric. <- c('Debt Consolidation', 'Not Available', 'Other', 'Home Improvement', 'Business', 'Auto', 'Personal Loan', 'Household Expenses', 'Medical/Dental', 'Taxes', 'Large Purchases', 'Wedding Loans')
+
+ggplot(aes(ListingCategory..numeric., how_many), data = Loan_Purpose[-c(1, 8), ]) +
+  geom_point() +
+  xlab('Occupation') +
+  ylab('count') +
+  ggtitle("Top 10 Occupations that has High LenderYiled except 'Other' and 'blank'")
+```
+
+```{r echo=FALSE, Univariate_Plots_seond}
+df_occupation_group <- df_copy %>% 
+  group_by(Occupation) %>% 
+  summarise(how_many = n()) %>% 
+  arrange(-how_many) %>% 
+  head(12)
+
+ggplot(aes(Occupation, how_many),
+       data = df_occupation_group[-c(1, 8), ]) +
+  geom_col() +
+  xlab('Occupation') +
+  ylab('Count') +
+  ggtitle("Top 10 Occupations that borrow the most except 'Other' and 'blank'")
+
+```
+
+***
+
+
 
 # Bivariate Analysis
 
@@ -240,31 +438,6 @@ future work that could be done with the dataset.
 
 > **Tip**: Don't forget to remove this, and the other **Tip** sections before
 saving your final work and knitting the final report!
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
