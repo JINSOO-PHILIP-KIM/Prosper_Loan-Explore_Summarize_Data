@@ -1,0 +1,224 @@
+How to maximize the profit of 'Prosper'?
+========================================================
+by JINSOO KIM
+========================================================
+
+<font size=4>
+
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=TRUE}
+library(ggplot2)
+library(dplyr)
+library(gridExtra)
+library(RColorBrewer)
+library(tidyverse)
+library(magrittr)
+library(knitr)
+```
+
+
+```{r echo=FALSE, Load_the_Data}
+# Load the Data
+
+df <- read.csv("C:/Users/Waker/Google 드라이브(1)/Class matrials/DAND2/7. Exploratory Data Analysis (24h) Due. 7 Mar/Project/Data/prosperLoanData.csv")
+```
+
+
+
+```{r echo=FALSE}
+df_copy <- df # Copy the original.
+```
+
+## 1. Data wrangling.
+Before Analysis I found Duplicated data
+Number of rows in dataset.
+```{r echo=FALSE}
+count(df_copy)
+```
+
+Number of rows in ListingKey which is unique key for each listing, same value as the 'key' used in the listing object in the API.
+```{r echo=FALSE}
+count(df_copy[unique(df_copy$ListingKey), ])
+```
+
+These are examples of duplicated ListingKey.
+```{r echo=FALSE}
+count(df_copy, ListingKey, sort = T) %>% filter(n > 1) %>% head(5)
+```
+
+I found that for each ListingKey, only the ProsperScores are different.
+```{r echo=FALSE}
+df_copy[df_copy$ListingKey == '17A93590655669644DB4C06', ]
+```
+
+I decide to delete 827 duplicated ListingKeys because there are not info that which one is valuable.
+```{r echo=FALSE}
+# Create duplicated dataset
+rm_keys <- count(df_copy, ListingKey, sort = T) %>% 
+  filter(n > 1) %$% ListingKey
+
+df_wrangled <- df_copy %>% 
+  filter(!(ListingKey %in% rm_keys))
+rm(rm_keys) # Remove useless Values
+
+count(df_wrangled)
+```
+
+***
+
+## 2. Univariate Plots Section
+
+2-1. Let's see the distribution of Income Range 
+```{r echo=FALSE, Univariate_Plots}
+table(df_wrangled$IncomeRange)
+df_wrangled$IncomeRange <- factor(df_wrangled$IncomeRange,
+                              levels = c('$0', '$1-24,999', '$25,000-49,999', '$50,000-74,999', '$75,000-99,999', '$100,000+', 'Not employed', 'Not displayed'))
+ggplot(aes(x = IncomeRange), data = df_wrangled) +
+  geom_bar()
+```
+
+***
+
+2-2. Occupation distribution
+
+```{r echo=FALSE}
+
+df_wrangled <- within(df_wrangled,
+                  Occupation <- factor(Occupation, levels = names(sort(table(Occupation)))))
+ggplot(aes(Occupation), data = df_wrangled) +
+  geom_bar() +
+  coord_flip() +
+  xlab('Purpose') +
+  ylab('count') +
+  ggtitle("Purpose of borrowing")
+
+```
+
+***
+
+2-3. Reasons to borrow money
+```{r echo=FALSE}
+# Change the number to borrowing purpose
+df_wrangled$ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 0] <- "Not Available"
+df_wrangled$ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 1] <- "Debt Consolidation"
+df_wrangled$ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 2] <- "Home Improvement"
+df_wrangled$ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 3] <- "Business"
+df_wrangled$ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 4] <- "Personal Loan"
+df_wrangled$ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 5] <- "Student Use"
+df_wrangled$ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 6] <- "Auto"
+df_wrangled$ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 7] <- "Other"
+df_wrangled$ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 8] <- "Baby&Adoption"
+df_wrangled$ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 9] <- "Boat"
+df_wrangled$ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 10] <- "Cosmetic Procedur"
+df_wrangled$ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 11] <- "Engagement Ring"
+df_wrangled$ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 12] <- "Green Loans"
+df_wrangled$ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 13] <- "Household Expenses"
+df_wrangled$ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 14] <- "Large Purchases"
+df_wrangled$ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 15] <- "Medical/Dental"
+df_wrangled$ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 16] <- "Motorcycle"
+df_wrangled$ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 17] <- "RV"
+df_wrangled$ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 18] <- "Taxes"
+df_wrangled$ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 19] <- "Vacation"
+df_wrangled$ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 20] <- "Wedding Loans"
+
+df_wrangled <- within(df_wrangled,
+                  ListingCategory..numeric. <- factor(ListingCategory..numeric., levels = names(sort(table(ListingCategory..numeric.)))))
+ggplot(aes(ListingCategory..numeric.), data = df_wrangled) +
+  geom_bar() +
+  coord_flip() +
+  xlab('Purpose') +
+  ylab('count') +
+  ggtitle("Purpose of borrowing")
+```
+
+***
+
+2-4. Loan distribtion by states
+```{r echo=FALSE}
+df_wrangled <- within(df_wrangled,
+                  BorrowerState <- factor(BorrowerState, levels = names(sort(table(BorrowerState)))))
+ggplot(aes(BorrowerState), data = df_wrangled) +
+  geom_bar() +
+  coord_flip() +
+  xlab('State') +
+  ylab('count') +
+  ggtitle("Loan distribtion by states")
+```
+
+***
+
+2-5. LenderYield distribution  
+
+```{r echo=FALSE}
+ggplot(df_wrangled, aes(LenderYield)) +
+  geom_bar()
+```
+
+***
+
+2-6. Loan creation date distribution
+```{r echo=FALSE}
+df_wrangled %>% 
+  count(day = as.Date(df_wrangled$ListingCreationDate)) %>% 
+  ggplot(aes(day, n)) +
+  geom_col()
+```
+
+There is a big pausing term from end of 2008 to end of 2009. This could be due to global financial crisis.
+For better dataset, I would only use data after this term. Here are why.
+
+1. Variables (ProsperRating (Alpha) & ProsperScore) are only available from July 2009.  
+2. To predict, using recent data only is better than with a big pausing term. Plus, the shape and number of loans are quite different.
+
+```{r echo=FALSE}
+df_wrangled <- 
+  filter(df_wrangled, as.Date(ListingCreationDate) > as.Date("2009-06-30"))
+
+df_wrangled %>% 
+  count(Day = as.Date(ListingCreationDate)) %>% 
+  ggplot(aes(Day, n)) +
+  geom_col() +
+  ggtitle("Loans from Jul 2009 to Mar 2014")
+```
+
+***
+
+2-7. Prosper score distribution 
+```{r echo=FALSE}
+ggplot(df_wrangled, aes(ProsperScore)) +
+  geom_histogram()
+```
+
+***
+
+2-8. Prosper Rating distribution
+```{r echo=FALSE}
+ggplot(df_wrangled, aes(ProsperRating..Alpha.)) +
+  geom_bar() +
+  xlab("Prosper Rating")
+```
+
+***
+
+## Univariate Analysis
+
+### Structure of this dataset
+> This dataset consists of 81 variables and 113,937 loans. Some of ListingKeys are duplicated. Therefore I removed them. 81 variables are quite a lot. Some variables are related, others are not. I chose 8 variables to make better profits.
+
+### Main features of this dataset?
+> 1. Which kind of people borrow the most.  
+Before starting, I had an assumiption. High borrow rate group has more chances to grow loans. Incomes range, Occupations, Borrowing reason, Region, Loan Creation date, Prosper Score & Rating are all to measure first feature.
+
+> 2. Big benefit. 
+If LenderYield is small, the amount of loans is not much. I thought LenderYield variable can measure the benefit.
+
+
+### Extra variables that could support my investigation
+
+> __OnTimeProsperPayments__ , __ProsperPaymentsLessThanOneMonthLate__
+
+By checking above variables, I would be able to tell people can pay back or not.
+
+
+</font>
