@@ -1,0 +1,1023 @@
+# Which group should 'Prosper' target to maximize profit?
+
+                                                                  by JINSOO KIM
+
+
+<font size=4>
+
+# Introduction
+What is 'Prosper'?  
+Prosper was founded in 2005 as the first peer-to-peer lending
+marketplace in the United States. 
+Since then, Prosper has facilitated more than $12 billion in loans
+to more than 770,000 people. If you want more details, check this
+link(https://www.prosper.com/home/about).
+
+The initial dataframe provides Prosper data
+that was made from Nov 2005 to Mar 2014.
+Analyzing this dataframe by univariate, bivariate, and multivariate plots,
+I would like to find some insights to maximize profit.
+
+To maximize total profit I would have basic assumptions.
+
+1. Marketing resources(time and money) are limited.  
+2. According to #1 assumption, Prosper should narrow the targeting groups.  
+3. Each variable can be narrowed to 5 factors.
+4. Buoyant market, groups are more prone to make additional profitable loans.  
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo=F, warning=FALSE, message=FALSE)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=TRUE}
+library(ggplot2)
+library(dplyr)
+library(gridExtra)
+library(RColorBrewer)
+library(forcats)
+library(magrittr)
+library(knitr)
+library(reshape2)
+```
+
+
+```{r echo=FALSE, Load_the_Data}
+# Load the Data
+
+df <- read.csv("C:/Users/Waker/Google 드라이브(1)/Class matrials/DAND2/7. Exploratory Data Analysis (24h) Due. 7 Mar/Project/Data/prosperLoanData.csv")
+```
+
+
+
+```{r echo=FALSE}
+df_copy <- df # Copy the original.
+```
+
+
+## 1. Data wrangling.
+Before Analysis, I found Duplicated 'ListingKey' in dataset.
+The total number of row is as below.
+```{r echo=FALSE}
+count(df_copy)
+```
+
+On the other hand,
+the number of unique ListingKey is somewhat different as below.
+```{r echo=FALSE}
+count(df_copy[unique(df_copy$ListingKey), ])
+```
+
+Below are the examples of duplicated ListingKey.
+```{r echo=FALSE}
+count(df_copy, ListingKey, sort = T) %>%
+  filter(n > 1) %>%
+  head(5)
+```
+
+I found that for each ListingKey,
+only the ProsperScores are different.
+```{r eval=FALSE, include=FALSE}
+# Below is one example.
+df_copy[df_copy$ListingKey == '17A93590655669644DB4C06', ]
+```
+
+I decide to delete all 827 duplicated ListingKeys because there are
+not enough information that which one is valuable.
+```{r echo=FALSE}
+# Remove useless Values
+df_wrangled <- df_copy %>% 
+  group_by(ListingKey) %>% 
+  filter(n() == 1)
+
+```
+From now Only unique ListingKeys are in the data frame.
+
+***
+
+
+## 2. Univariate Plots Section
+
+### 2-1 Loan creation date distribution
+```{r echo=FALSE}
+
+df_wrangled %>% 
+  count(Day = as.Date(ListingCreationDate)) %>% 
+  ggplot(aes(Day, n)) +
+  geom_col() +
+  xlab("Time")
+```
+
+There is a big pausing gap from end of 2008 to end of 2009. 
+This could be due to global financial crisis.
+For better dataset, I would only use data after this gap Here are why.
+
+1. Variables (ProsperRating (Alpha) & ProsperScore) are 
+only available from July 2009.  
+2. To predict, using recent data only is better than 
+with a big pausing gap Plus, the shape and number of loans are quite different.
+
+```{r echo=FALSE}
+df_wrangled <- 
+  filter(df_wrangled, as.Date(ListingCreationDate) > as.Date("2009-06-30"))
+
+df_wrangled %>% 
+  count(Day = as.Date(ListingCreationDate)) %>% 
+  ggplot(aes(Day, n)) +
+  geom_col() +
+  ggtitle("Loans from Jul 2009 to Mar 2014") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  xlab("Time")
+  ylab("Count")
+```
+
+***
+
+### 2-2 Occupation distribution
+
+```{r echo = F, fig.height = 13}
+
+df_wrangled <- within(df_wrangled,
+                  Occupation <- factor(Occupation,
+                                       levels =
+                                names(sort(table(Occupation)))))
+ggplot(aes(Occupation), data = df_wrangled) +
+  geom_bar() +
+  xlab('Occupation') +
+  ggtitle("Occupation distribution") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  coord_flip()
+
+```
+
+***
+
+### 2-3 Reasons to borrow money distribution
+```{r echo=FALSE, fig.height = 4}
+# Change 'number' to 'borrowing purpose'
+df_wrangled$
+  ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 0] <-
+  "Not Available"
+df_wrangled$
+  ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 1] <-
+  "Debt Consolidation"
+df_wrangled$
+  ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 2] <- 
+  "Home Improvement"
+df_wrangled$
+  ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 3] <- 
+  "Business"
+df_wrangled$
+  ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 4] <- 
+  "Personal Loan"
+df_wrangled$
+  ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 5] <- 
+  "Student Use"
+df_wrangled$
+  ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 6] <- 
+  "Auto"
+df_wrangled$
+  ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 7] <- 
+  "Other"
+df_wrangled$
+  ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 8] <- 
+  "Baby&Adoption"
+df_wrangled$
+  ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 9] <- 
+  "Boat"
+df_wrangled$
+  ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 10] <- 
+  "Cosmetic Procedur"
+df_wrangled$
+  ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 11] <- 
+  "Engagement Ring"
+df_wrangled$
+  ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 12] <- 
+  "Green Loans"
+df_wrangled$
+  ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 13] <-
+  "Household Expenses"
+df_wrangled$
+  ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 14] <- 
+  "Large Purchases"
+df_wrangled$
+  ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 15] <- 
+  "Medical/Dental"
+df_wrangled$
+  ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 16] <- 
+  "Motorcycle"
+df_wrangled$
+  ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 17] <- 
+  "RV"
+df_wrangled$
+  ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 18] <- 
+  "Taxes"
+df_wrangled$
+  ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 19] <- 
+  "Vacation"
+df_wrangled$
+  ListingCategory..numeric.[df_wrangled$ListingCategory..numeric. == 20] <- 
+  "Wedding Loans"
+
+df_wrangled <- within(df_wrangled,
+                  ListingCategory..numeric. <-
+                    factor(ListingCategory..numeric.,
+                           levels =
+                             names(sort(table(ListingCategory..numeric.)))))
+ggplot(aes(ListingCategory..numeric.), data = df_wrangled) +
+  geom_bar() +
+  coord_flip() +
+  xlab('Purpose') +
+  ggtitle("Purpose of borrowing") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+Debt consolidation consists of 62.35%(51,849 / 83,155) of total loans.
+
+***
+
+### 2-4 Loan distribtion by States
+```{r, fig.width = 13}
+df_wrangled <- within(df_wrangled,
+                  BorrowerState <- 
+                    factor(BorrowerState,
+                           levels = names(sort(table(BorrowerState)))))
+ggplot(aes(BorrowerState), data = df_wrangled) +
+  geom_bar() +
+  xlab('State') +
+  ggtitle("Loan distribtion by States") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+***
+
+### 2-5 Prosper score distribution 
+```{r echo=FALSE}
+ggplot(df_wrangled, aes(x=factor(ProsperScore))) + geom_bar() +
+  ggtitle("Prosper score distribution") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+A custom risk score built using historical Prosper data. The higher score, the less risky.
+
+***
+
+### 2-6 Prosper Rating distribution
+```{r echo=FALSE}
+df_wrangled$ProsperRating..Alpha. <- factor(
+  df_wrangled$ProsperRating..Alpha.,
+  level = c("AA", "A", "B", "C", "D", "E", "HR"))
+ggplot(df_wrangled, aes(ProsperRating..Alpha.)) +
+  geom_bar() +
+  xlab("Prosper Rating") +
+  ggtitle("Prosper Rating distribution") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+Rating "AA" means the lowset interest rate and
+"HR" means the highest with High Risk.
+
+***
+
+### 2-7 Income Range Distribution
+```{r Univariate_Plots}
+df_wrangled$IncomeRange <- factor(df_wrangled$IncomeRange,
+                              levels = c('$0', '$1-24,999',
+                                         '$25,000-49,999',
+                                         '$50,000-74,999', 
+                                         '$75,000-99,999',
+                                         '$100,000+',
+                                         'Not employed',
+                                         'Not displayed'))
+ggplot(aes(x = IncomeRange), data = df_wrangled) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  ggtitle("2-7 Income Range Distribution")
+```
+
+***
+
+### 2-8 LenderYield distribution  
+
+```{r, fig.width = 9}
+df_wrangled$LenderYield.bucket <- 
+  cut(df_wrangled$LenderYield, breaks = c(0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35), 
+      labels = 
+        c("0% - 5.00%", "5.01% - 10.00%", "10.01% - 15.00%",
+          "15.01% - 20.00%", "20.01% - 25.00%", 
+          "25.01% - 30.00%", "30.01% - 35.00%"))
+ggplot(df_wrangled, aes(LenderYield.bucket)) +
+  geom_bar() +
+  ggtitle("LenderYield distribution by 5% bucket") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+High LenderYield means high profit when the amount of each loan is equivalent.
+
+```{r}
+summary(df_wrangled$LenderYield)
+```
+
+***
+
+### 2-9 Loan Original Amount distribution
+```{r}
+ggplot(aes(x = LoanOriginalAmount), data = df_wrangled) +
+  geom_histogram() +
+  ylab("Count") +
+  ggtitle("Loan Original Amount distribution") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+We can see that most of Loans are under USD 20,000.
+If the yield is equivalent for each loan,
+loans with high amount of money are more profitable.
+
+***
+
+### 2-10 "RightTimePayments(Variable that I added)" Ratio distribution
+
+
+ __1. OnTimeProsperPayments__ ,  __2. ProsperPaymentsLessThanOneMonthLate__
+
+By checking above variables, 
+I would be able to predict people can pay back(On time or late but  less than one month) or not.
+
+Before investigating two variables, need to see the entire data. Many of them do not have prior loan records. Therefore, this is only valid analysis for the people who had the loan records.
+
+This is the total number of the people who had the loan records before.
+```{r}
+nrow(df_wrangled %>% 
+  filter(!is.na(TotalProsperPaymentsBilled)))
+```
+
+Now I would add a new variable "__RightTimePayments__" which means ("__OnTimeProsperPayments__" + "__ProsperPaymentsLessThanOneMonthLate__") / "__TotalProsperPaymentsBilled__". 
+
+```{r message=TRUE, warning=TRUE, include=FALSE}
+df_wrangled <- df_wrangled %>% 
+  mutate(RightTimePayments = ifelse(is.na(TotalProsperPaymentsBilled), NA, 
+                                    (OnTimeProsperPayments +
+                                       ProsperPaymentsLessThanOneMonthLate)
+                                  / TotalProsperPaymentsBilled))
+```
+
+The ratio of "RightTimePayments" will be considered as
+we can trust the people would pay the bill.
+```{r}
+as.double(nrow(subset(df_wrangled, !is.na(df_wrangled$RightTimePayments))) / 
+nrow(subset(df_wrangled, !is.na(df_wrangled$TotalProsperPaymentsBilled))))
+```
+
+It is 0.9984599, almost 100%. So I consider the people who had the loan records before will pay back properly.
+
+***
+
+### 2-11 Univariate Analysis
+
+#### 1) Structure of this dataset  
+This dataset consists of 81 variables and 113,937 loans. 
+Some of ListingKeys are duplicated.Therefore I removed them. 
+81 variables are quite a lot. Some variables are related, 
+others are not. I chose 8 variables to make better profits.
+
+
+#### 2) What are main features of this dataset?  
+* There is a big pausing gap from end of 2008 to end of 2009.
+I thought recent 4 years record will be enough for analysis,
+so removed pausing gap part of this data.
+
+* Loans by Occupation, Purpose of borrowing,
+region, IncomeRange show that loans are dominated by specific groups.
+
+* LenderYield and LoanOriginalAmount are key variables for profit.
+And they are not seperate, 
+so I made "RightTimePayments" variable to measure at once.
+
+## 3. Bivariate Plots Section
+
+### 3-1 Relationship between ProsperScore and ProsperRating
+If above both variables do not have linear relation, we need to set
+a new standard for risk score.
+
+```{r}
+ggplot(df_wrangled, aes(factor(ProsperRating..numeric.), factor(ProsperScore))) +
+  geom_jitter(alpha = 0.3) +
+  xlab("ProsperRating") +
+  ylab("ProsperScore") +
+  scale_x_discrete(labels = 
+                     c("1" = "HR", "2" = "E", "3" = "D",
+                       "4" = "C", "5" = "B", "6" = "A", "7" = "AA"))
+```
+
+Bivariate plot seems linear.  
+
+In addition, correlation coefficient is 0.708
+which means this is valid for strong relationship between two variables.
+```{r}
+cor(df_wrangled$ProsperRating..numeric., df_wrangled$ProsperScore)
+```
+
+***
+
+### 3-2 Relationship between LenderYield and Loan original amount
+The amount of loan and the LenderYield play a significant role in Prosper's business.
+```{r, fig.width= 8}
+ggplot(aes(x = LenderYield.bucket, y = LoanOriginalAmount), data = df_wrangled) +
+  geom_jitter(alpha = 0.05)
+```
+
+Seems like there is no significant relationship between two.
+Hence, to analyze better, I would mix it as one variable, "__Profit__".
+"__Profit__" variable means "__LenderYield__" * "__LoanOriginalAmount__",
+this will be appropriate to analyze.
+
+```{r}
+df_wrangled <- df_wrangled %>% 
+  mutate(Profit = LenderYield * LoanOriginalAmount)
+
+ggplot(df_wrangled, aes(Profit)) +
+  geom_histogram(fill="#56B4E9")
+```
+
+From now, I would use this variable '__Profit__' 
+as a measure how much money Prosper can earn.
+Below is summary of Profit.
+
+```{r}
+summary(df_wrangled$Profit)
+```
+
+If same inputs(time and money) are required to make one loan,
+the loans with big profit are good to make more money. 
+So focusing on high profit
+(I assume here this is 1,230.8 which is Median value) would
+be an appropriate starategy.
+
+***
+
+### 3-3 Average profit & total profits distribution by Occupation
+
+There are 68 Occupations, so I only check top 10 occupations for each.
+
+
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+df_wrangled %>% 
+  group_by(Occupation) %>% 
+  summarise(Average_profit = mean(Profit)) %>% 
+  ggplot(aes(x = Occupation, y = Average_profit, group = 1)) +
+  geom_line(color='steelblue') +
+  geom_point(color='steelblue', size=1) +
+  coord_flip()
+```
+
+```{r}
+df_wrangled %>% 
+  group_by(Occupation) %>% 
+  summarise(Average_profit = mean(Profit)) %>% 
+  arrange(-Average_profit) %>%
+  head(10) %>% 
+  ggplot(aes(x = Occupation, y = Average_profit)) +
+  geom_bar(color='steelblue', stat = "identity", fill = "#56B4E9") +
+  coord_flip() +
+  ggtitle("Average profit distribution by Occupation ") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+options(scipen=999)
+df_wrangled %>% 
+  group_by(Occupation) %>% 
+  summarise(profits = 
+              sum(Profit * LoanOriginalAmount)) %>% 
+  arrange(-profits) %>% 
+  head(10) %>% 
+  ggplot(aes(x = Occupation, y = profits)) +
+  geom_bar(color='steelblue', stat = "identity", fill = "#56B4E9") +
+  coord_flip() +
+  ggtitle("Total profits by Occupation") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+Total profits by Occupation shows the same tendency.
+
+***
+
+### 3-4 Average profit & total profits distribution by Borrowing reasons
+There are 20 reasons, but I am only listing half to focus.
+
+
+```{r, fig.height = 7}
+df_wrangled %>% 
+  group_by(ListingCategory..numeric.) %>% 
+  summarise(Average_profit = mean(Profit)) %>% 
+  arrange(-Average_profit) %>% 
+  head(10)  %>%  
+    ggplot(aes(x = factor(ListingCategory..numeric.), y = Average_profit)) +
+  geom_bar(color='steelblue', stat = "identity", fill = "#56B4E9") +
+  xlab("Reason to borrow money") +
+  coord_flip() +
+  ggtitle("Average profit distribution by Borrowing reasons") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+options(scipen=999)
+df_wrangled %>% 
+  group_by(ListingCategory..numeric.) %>% 
+  summarise(profits = 
+              sum(Profit * LoanOriginalAmount)) %>% 
+  arrange(-profits) %>% 
+  head(10)  %>%  
+    ggplot(aes(x = factor(ListingCategory..numeric.), y = profits)) +
+  geom_bar(color='steelblue', stat = "identity", fill = "#56B4E9") +
+  xlab("Reason to borrow money") +
+  coord_flip() +
+  ggtitle("Total profits distribution by Borrowing reasons") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+Total profits by Borrowing reasons shows different tendency.
+Most of loans are for debt consolidation.
+
+***
+
+### 3-5 Average profit & total profits distribution by states
+
+```{r, fig.width = 13}
+data_wrangled_state <- df_wrangled %>% 
+  group_by(BorrowerState) %>% 
+  summarise(Average_profit = mean(Profit)) %>% 
+  arrange(-Average_profit)
+
+ggplot(data_wrangled_state, aes(x = BorrowerState, y = Average_profit)) +
+  geom_bar(stat = "identity") +
+  xlab("State") +
+  ylab('Average profit per loan') +
+  ggtitle("Average profit distribtion by States") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+NJ(New Jersey) has the highest(1620.186) average profit per loan
+and MT(Montana) is the lowset(1344.100).
+I consider the difference between two are not big.
+
+
+```{r, fig.width = 13}
+data_wrangled_state <- df_wrangled %>% 
+  group_by(BorrowerState) %>% 
+  summarise(profits = 
+              sum(Profit * LoanOriginalAmount)) %>% 
+  arrange(-profits)
+
+ggplot(data_wrangled_state, aes(x = BorrowerState, y = profits)) +
+  geom_bar(stat = "identity") +
+  xlab("State") +
+  ylab('Total profits per loan') +
+  ggtitle("Total profits distribtion by States") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+rm(data_wrangled_state)
+
+```
+
+So, rather than profit, the states with many loans needs to be focused on.
+
+Here are Top 10 states borrow the most.
+```{r, fig.width = 10}
+df_wrangled %>%
+  group_by(BorrowerState) %>% 
+  summarise(n = n()) %>% 
+  arrange(-n) %>% 
+  head(10)
+```
+
+***
+
+### 3-6 Average profit & total profits distribution by IncomeRange
+
+```{r fig.width = 8}
+df_wrangled %>% 
+  group_by(IncomeRange) %>% 
+  summarise(Average_profit = mean(Profit)) %>% 
+  ggplot(aes(x = IncomeRange, y = Average_profit, group = 1)) +
+  # group = 1 makes all the dots connected.
+  geom_bar(stat="identity", color='steelblue', fill = "#56B4E9") +
+  ggtitle("Average profit distribution by IncomeRange") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+There is a big gap by each IncomeRange.  
+Average Profit of __$ 100,000+__ income range 
+is as almost twice as it of __$ 1-24,999__ income range.
+
+
+
+```{r fig.width = 8}
+df_wrangled %>% 
+  group_by(IncomeRange) %>% 
+    summarise(profits = 
+              sum(Profit * LoanOriginalAmount)) %>% 
+  ggplot(aes(x = IncomeRange, y = profits, group = 1)) +
+  # group = 1 makes all the dots connected.
+  geom_bar(stat = "identity", color='steelblue', fill = "#56B4E9") +
+  ggtitle("Total profits distribution by IncomeRange") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+No.1 IncomeRange __$ 100,000+__ got the highest average profit and total profits.
+But other IncomeRanges show different tendency in both plots.
+
+***
+
+### 3-7 Average profit & total profits distribution by ProsperScore
+
+```{r}
+df_wrangled %>% 
+  group_by(ProsperScore) %>% 
+  summarise(Average_profit = mean(Profit)) %>% 
+  arrange(-Average_profit) %>% 
+  ggplot(aes(x = factor(ProsperScore), y = Average_profit)) +
+  geom_bar(color='steelblue', stat = "identity", fill = "#56B4E9") +
+  xlab("ProsperScore") +
+  coord_flip() +
+  ggtitle("Average profit distribution by ProsperScore") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+The difference between each ProsperScore's Average_profit
+is not considered extreme.
+
+
+```{r}
+df_wrangled %>% 
+  group_by(ProsperScore) %>% 
+  summarise(profits = 
+              sum(Profit * LoanOriginalAmount)) %>% 
+  arrange(-profits) %>% 
+  ggplot(aes(x = factor(ProsperScore), y = profits)) +
+  geom_bar(color='steelblue', stat = "identity", fill = "#56B4E9") +
+  xlab("ProsperScore") +
+  coord_flip() +
+  ggtitle("Total profits distribution by ProsperScore") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+As above plot shows, it will be better to pick and focus on
+the people with their ProsperScore with 4, 5, 6, 7, 8.
+
+***
+
+### 3-8 Bivariate Analysis
+
+1) Prosper Rating & Prosper Score are in linear relationship.
+
+2) For better analysis I added a new variable "__Profit__" with this,
+I set the groups that Prosper should focus later.
+
+3) There are big average profit difference between occupations.
+So I picked Top 10 occupations that are Judge, Dentist, Tradesman - Plumber,
+Homemaker, Student - College Freshman, Student - College Junior,
+Student - College Senior,
+Student - College Sophomore, 
+Student - Community College, Student - Technical School.
+
+4) Top 10 Average profit Borrowing reasons are Debt Consolidation, Business,
+Wedding Loans, Baby&Adoption, RV,
+Large Purchases, Home Improvement, Green Loans, Boat, Taxes.
+
+5) The average profit difference is not that big among states.
+However, as we saw in 2-4 Loan distribtion by States,
+the number of loan are distinct.
+So let's focus on the states which have many loans.
+The top 10 are CA, NY, TX, FL, IL, OH, GA, VA, NJ, PA.
+
+6) By IncomeRange, there were huge avrage profit difference.
+
+7) By ProsperScore, average profit is not different much.
+Then Prosper better to make business with the people 
+who are in the group which got the most people. 
+Those groups got the ProsperScore 4, 6, 8, 7, 5.
+
+
+***
+
+
+# 4. Multivariate Plots Section
+
+## In this section, I would see which variables can differentiate the profit in Top 5 states that have the most loans.
+
+```{r}
+df_wrangled_5states <- df_wrangled %>% 
+  filter(BorrowerState == "CA" | BorrowerState == "NY" 
+         | BorrowerState == "TX" | BorrowerState == "FL" 
+         | BorrowerState == "IL")
+```
+
+***
+
+### 4-1 Profits by Occupation, IncomeRange on 5 states
+
+Below are the Top 5 occupations that Prosper can earn profits the most. 
+```{r}
+df_wrangled_5states %>% 
+  group_by(Occupation) %>% 
+  summarise(profits = 
+              sum(Profit * LoanOriginalAmount)) %>% 
+  arrange(-profits) %>% 
+  head(6) # Other is the No.1 so, this can be weakness
+```
+
+Now using these 5 occupations except 'Other',
+let's see the relationship among IncomeRange.
+
+```{r, fig.width = 9}
+df_wrangled_5states_5occ <- 
+  df_wrangled_5states %>% 
+  group_by(Occupation, IncomeRange) %>% 
+  summarise(profits = 
+              sum(Profit * LoanOriginalAmount)) %>% 
+  filter(Occupation %in% c("Professional", "Executive", "Computer Programmer", "Nurse (RN)", "Analyst")) 
+
+factor(df_wrangled_5states_5occ$IncomeRange, levels = c('$0', '$1-24,999',
+'$25,000-49,999', '$50,000-74,999', '$75,000-99,999',
+                                         '$100,000+'
+                                         )) 
+
+options(scipen=999)
+df_wrangled_5states_5occ_melted <- melt(df_wrangled_5states_5occ)
+ggplot(df_wrangled_5states_5occ_melted,
+       aes(IncomeRange, value, fill = Occupation )) +
+  geom_bar(position = "dodge",stat = "identity") +
+  ylab("Total profits") +
+  ggtitle("Profits by Occupation, IncomeRange on 5 states") +
+  theme_dark() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Cham_Go How to plot line chart.
+# ggplot(df_wrangled_5states_5occ, aes(x = IncomeRange, y = profits, color = Occupation, group = Occupation)) + geom_line()
+
+```
+
+This plot shows that IncomeRange '$100,000+' gets the Highest total profits.
+Let's name this group as __Target 1__. 
+```{r}
+df_wrangled_5states_5occ %>% 
+  filter(IncomeRange == '$100,000+') %>% 
+  summarise(sum1 = sum(profits)) %>% 
+  select(sum1) %>% 
+  summarise(sum2 = sum(sum1))
+
+
+```
+Target 1 made USD 102,964,298,533 total profits.
+
+***
+
+### 4-2 Profits by Purpose of borrowing, IncomeRange on 5 states
+
+```{r}
+df_wrangled_5states %>% 
+  group_by(ListingCategory..numeric.) %>% 
+  summarise(profits = 
+              sum(Profit * LoanOriginalAmount)) %>% 
+  arrange(-profits) %>% 
+  head(6)
+  
+```
+
+```{r, fig.width = 10}
+df_wrangled_5states_RoB <- # RoB: Reason of Borrowing
+  df_wrangled_5states %>% 
+  group_by(ListingCategory..numeric., IncomeRange) %>% 
+  summarise(profits = 
+              sum(Profit * LoanOriginalAmount)) %>% 
+  filter(ListingCategory..numeric. %in% c("Debt Consolidation", "Home Improvement", "Business", "Household Expenses", "Medical/Dental")) 
+
+options(scipen=999)
+df_wrangled_5states_RoB_melted <- melt(df_wrangled_5states_RoB)
+ggplot(df_wrangled_5states_RoB_melted,
+       aes(IncomeRange, value, fill = ListingCategory..numeric. )) +
+  geom_bar(position = "dodge",stat = "identity") +
+  ylab("Total profits") +
+  ggtitle("Profits by Purpose of borrowing, IncomeRange on 5 states") +
+  theme_dark() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+rm(df_wrangled_5states_RoB_melted)
+rm(df_wrangled_5states_RoB)
+```
+
+The plot shows  the IncomeRange '$100,000+' gets the Highest total profits.
+But rather than that, 
+just focusing on Debt Consolidation(No matter what IncomeRange is in) will be more profitable.
+
+```{r}
+df_wrangled_5states %>% 
+  group_by(ListingCategory..numeric.) %>% 
+  summarise(profits = 
+              sum(Profit * LoanOriginalAmount)) %>% 
+  filter(ListingCategory..numeric. =="Debt Consolidation")
+```
+
+Target 2 made USD 435,002,633,251 total profits.
+
+***
+
+### 4-3 Profits by ProsperScore on 5 states
+
+```{r}
+df_wrangled_5states %>% 
+  group_by(ProsperScore) %>% 
+  summarise(profits = 
+              sum(Profit * LoanOriginalAmount)) %>% 
+  arrange(-profits)
+```
+
+Above table shows that top 3 ProsperScores dominates most of the profits.  
+
+```{r, fig.width = 9}
+df_wrangled_5states_PS <- # PS: ProsperScore
+  df_wrangled_5states %>% 
+  group_by(ProsperScore, IncomeRange) %>% 
+  summarise(profits = 
+              sum(Profit * LoanOriginalAmount)) %>% 
+  filter(ProsperScore %in% c("8", "6", "7"))
+
+options(scipen = 999)
+
+ggplot(df_wrangled_5states_PS,
+       aes(IncomeRange, profits, fill = factor(ProsperScore) )) +
+  geom_bar(position = "dodge", stat = "identity") +
+  ylab("Total profits") +
+  ggtitle("Profits by ProsperScore & IncomeRange on 5 states") +
+  theme_dark() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+Let's name this group as __Target 3__.  
+
+```{r}
+df_wrangled_5states_PS %>% 
+  filter(ProsperScore %in% c("8", "6", "7")) %>% 
+  summarise(sum1 = sum(profits)) %>% 
+  summarise(sum2 = sum(sum1))
+
+rm(df_wrangled_5states_PS)
+```
+
+Target 3 made USD 277,906,646,301 total profits.
+
+***
+
+### 4-4 Multivariate Analysis
+
+1. Narrowing method was appropriate for targeting groups.
+Because resources(time and money) are limited.
+
+2. Purpose of borrowing is more important than Occupation,
+ProsperScore, Region, IncomeRange for profits.
+
+3. ProsperScore __8,6,7 out of 11__ are good scores but cannot estimate the accurate pay back rate.
+
+***
+
+# 5. Final Plots and Summary
+
+### 5-1 Plot One
+```{r, fig.width = 13}
+data_wrangled_state <- df_wrangled %>% 
+  group_by(BorrowerState) %>% 
+  summarise(profits = 
+              sum(Profit * LoanOriginalAmount)) %>% 
+  arrange(-profits)
+
+ggplot(data_wrangled_state, aes(x = BorrowerState, y = profits)) +
+  geom_bar(stat = "identity") +
+  xlab("State") +
+  ylab('Total profits per loan') +
+  ggtitle("Total profits distribtion by States") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+```
+
+Loans profits are not equally distributed by states.
+
+```{r}
+a = sum(data_wrangled_state$profits)
+
+b <- data_wrangled_state %>% 
+  arrange(-profits) %>% 
+  head(5) %>% 
+  summarise(sum = sum(profits))
+
+b / a
+
+rm(data_wrangled_state)
+```
+
+Top 5 states consits of 39.2%(592,959,260,817 / 1,514,541,845,858)
+total loans out of 52 states.
+Therefore Prosper better focus on these 5 states only.
+
+***
+
+### 5-2 Plot Two
+```{r, fig.width = 10}
+options(scipen=999)
+df_wrangled_5states_5occ_melted <- melt(df_wrangled_5states_5occ)
+ggplot(df_wrangled_5states_5occ_melted,
+       aes(IncomeRange, value, fill = Occupation )) +
+  geom_bar(position = "dodge",stat = "identity") +
+  theme_dark() +
+  ylab("Total profits") +
+  ggtitle("Profits by Occupation, IncomeRange on 5 states") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+rm(df_wrangled_5states_5occ)
+rm(df_wrangled_5states_5occ_melted)
+```
+
+Plot two is narrowed by States, Occupation, IncomeRange. 
+Target 1(IncomeRange ‘$100,000+’) made USD 102,964,298,533 total profits.
+I guess marketing to Target 1 will play an important role increasing profits.
+
+### 5-3 Plot Three
+```{r, fig.width = 10}
+df_wrangled_5states_RoB <- # RoB: Reason of Borrowing
+  df_wrangled_5states %>% 
+  group_by(ListingCategory..numeric., IncomeRange) %>% 
+  summarise(profits = 
+              sum(Profit * LoanOriginalAmount)) %>% 
+  filter(ListingCategory..numeric. %in% c("Debt Consolidation", "Home Improvement", "Business", "Household Expenses", "Medical/Dental")) 
+
+options(scipen=999)
+df_wrangled_5states_RoB_melted <- melt(df_wrangled_5states_RoB)
+ggplot(df_wrangled_5states_RoB_melted,
+       aes(IncomeRange, value, fill = ListingCategory..numeric. )) +
+  geom_bar(position = "dodge",stat = "identity") +
+  theme_dark() +
+  ylab("Total profits") +
+  ggtitle("Profits by Purpose of borrowing, IncomeRange on 5 states") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+rm(df_wrangled_5states_RoB_melted)
+rm(df_wrangled_5states_RoB)
+```
+
+This plot shows that Debt Consolidation 
+is the absolute primary reason to make loans.
+Other than any other variable, focusing on 'Debt Consolidation'
+looks reasonable.
+
+# 6. Reflection
+
+### 6-1 Data wrangling.
+This dataset is very clean I think.
+I only removed some data before specific time.
+
+### 6-2 Variables I considered.
+
+Occupation: 
+the number, average profit, total profits of each occupation varies.
+
+Reasons to borrow money:
+the number, average profit, total profits of each reason varies.
+
+Region:
+the number, total profits of each region varies.
+
+ProsperScore and ProsperRating are in strong positive relationship.
+
+***
+
+### 6-3 Final decision
+
+In reality, company has to choose what work to do and not.
+So, I found narrowing group is needed for targeting group.
+Finally, I would focus on 5 states(CA, NY, TX, FL, IL) and
+Debt Consolidation loans.
+
+
+### 6-4 Limit of this dataset
+
+1. Most of loan users do not have prior records,
+this means we cannot guarantee how much portion of them will pay back.
+
+2. For occupation, 'Other' takes the highest portion.
+This may affect Top 5 occupations that have high total profits.
+
+3. Debt Consolidation is the main reason to make loans.
+This means customers' loans are revolving.
+They might find other credit companies to pay back Prosper's loan.
+This pattern may end up making them bankrupt someday.
+So, even though Prosper focus on marketing on Debt Consolidation,
+it has to care about the default risk.
+
+
+
+</font>
